@@ -33,6 +33,11 @@ def flatten(d, parent_key='', sep='.'):
          items.append((new_key, v))
    return dict(items)
 
+_reg = re.compile(r'(?!^)(?<!_)([A-Z])')
+
+def camel_to_snake(s):
+    return _reg.sub(r'_\1', s).lower()
+
 def insert_event(spvalues):
    # clean blank fields
    for key,val in copy.deepcopy(spvalues).items():
@@ -95,6 +100,18 @@ def insert_event(spvalues):
          custom_schema_str = 'io_azarus_email_sent_1'
       if re.search(r'landing_from_email',unstruct_event['data']['schema']):
          custom_schema_str = 'io_azarus_landing_from_email_1'
+      if re.search(r'user_creation',unstruct_event['data']['schema']):
+         custom_schema_str = 'io_azarus_user_creation_1'
+      if re.search(r'blockchain_account_creation',unstruct_event['data']['schema']):
+         custom_schema_str = 'io_azarus_blockchain_account_creation_1'
+      if re.search(r'user_new_identity',unstruct_event['data']['schema']):
+         custom_schema_str = 'io_azarus_user_new_identity_1'
+      if re.search(r'link_click',unstruct_event['data']['schema']):
+         custom_schema_str = 'com_snowplowanalytics_snowplow_link_click_1'
+         # convert camel snake fields to snake case
+         for key in copy.deepcopy(unstruct_event['data']['data']).keys():
+            newKey = camel_to_snake(key)
+            unstruct_event['data']['data'][newKey] = unstruct_event['data']['data'].pop(key)
 
       if 'custom_schema_str' in locals():
          unstruct_event_data = flatten(unstruct_event['data']['data'])
