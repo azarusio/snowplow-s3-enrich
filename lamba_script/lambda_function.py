@@ -107,6 +107,8 @@ def insert_event(spvalues):
          custom_schema_str = 'io_azarus_user_new_identity_1'
       if re.search(r'link_click',unstruct_event['data']['schema']):
          custom_schema_str = 'com_snowplowanalytics_snowplow_link_click_1'
+      if re.search(r'stream_watch',unstruct_event['data']['schema']):
+         custom_schema_str = 'io_azarus_stream_watch_1'
          # convert camel snake fields to snake case
          for key in copy.deepcopy(unstruct_event['data']['data']).keys():
             newKey = camel_to_snake(key)
