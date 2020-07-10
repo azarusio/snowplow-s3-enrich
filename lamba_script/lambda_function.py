@@ -51,23 +51,28 @@ def insert_event(spvalues):
    # if 'collector_tstamp' in spvalues:
    #    spvalues['collector_tstamp'] = datetime.datetime.fromtimestamp(int(spvalues['collector_tstamp'])/1000).strftime('%Y-%m-%d %H:%M:%S')
 
-   # process custom (unstructed) event
+
+
+   # assign custom (unstructed) event to a variable
    if 'unstruct_event' in spvalues:
       # decode from base64 and parse into dictionary
       params = base64.b64decode(spvalues['unstruct_event'] + '===').decode("utf-8")
-      print('params:')
-      print(params)
       unstruct_event = json.loads(params)
-      print('unstruct_event:')
-      print(unstruct_event)
       del spvalues['unstruct_event']
    elif 'unstruct_event_unencoded' in spvalues:      
       # parse into dictionary
       params = urllib.parse.unquote(urllib.parse.unquote(spvalues['unstruct_event_unencoded']))
       unstruct_event = json.loads(params)
-      print('unstruct_event:')
-      print(unstruct_event)
-      del spvalues['unstruct_event_unencoded']         
+      del spvalues['unstruct_event_unencoded']
+
+   # assign context to a variable
+   if 'context' in spvalues:
+      # decode from base64 and parse into dictionary
+      context_decoded = base64.b64decode(spvalues['context'] + '===').decode("utf-8")
+      context = json.loads(context_decoded)
+      del spvalues['context']
+
+
 
    # prepare event sql
    columns_names = list(spvalues.keys())
@@ -80,6 +85,8 @@ def insert_event(spvalues):
                   binds=binds_str))
    values = [spvalues[column_name]
       for column_name in columns_names]
+
+
 
    # prepare custom event sql
    if 'unstruct_event' in locals():
@@ -116,8 +123,6 @@ def insert_event(spvalues):
 
       if 'custom_schema_str' in locals():
          unstruct_event_data = flatten(unstruct_event['data']['data'])
-         print('unstruct_event_data:')
-         print(unstruct_event_data)
          columns_names_custom = list(unstruct_event_data.keys())
          columns_names_custom_str = ', '.join('"{0}"'.format(c) for c in columns_names_custom)
          binds_custom_str = ', '.join('%s' for _ in range(len(columns_names_custom)))
@@ -129,9 +134,38 @@ def insert_event(spvalues):
                      binds_custom=binds_custom_str))
          values_custom = [unstruct_event_data[column_name_custom]
             for column_name_custom in columns_names_custom]
-         print('sql_custom:')
-         print(sql_custom)
 
+
+
+   # process context and prepare sql if custom context is found
+   custom_cx_sqls = []
+   if 'context' in locals():
+      # iterate over all contexts and check for custom ones
+      for cx in context['data']:
+         # define the corresponding custom context schema name
+         if re.search(r'twitch_user_context',cx['schema']):
+            custom_cx_schema_str = 'io_azarus_twitch_user_context_1'
+         
+         if 'custom_cx_schema_str' in locals():
+            cx['data']['root_id'] = spvalues['event_id']
+            custom_cx_data = flatten(cx['data'])
+            columns_names_custom_cx = list(custom_cx_data.keys())
+            columns_names_custom_cx_str = ', '.join('"{0}"'.format(c) for c in columns_names_custom_cx)
+            binds_cx_custom_str = ', '.join('%s' for _ in range(len(columns_names_custom_cx)))
+         
+            sql_custom_cx = ("INSERT INTO atomic.{custom_cx_schema} ({columns_names_custom_cx}) "
+                  "VALUES ({binds_custom_cx})"
+                  .format(custom_cx_schema=custom_cx_schema_str,
+                        columns_names_custom_cx=columns_names_custom_cx_str,
+                        binds_custom_cx=binds_cx_custom_str))
+            values_custom_cx = [custom_cx_data[column_name_custom_cx]
+               for column_name_custom_cx in columns_names_custom_cx]
+
+            # add sql to an array (because there can be multiple custom contexts)
+            custom_cx_sqls.append([sql_custom_cx, values_custom_cx])
+         
+
+   # execute created SQL requests      
    conn = None
    try:
       # connect to the PostgreSQL database
@@ -144,6 +178,9 @@ def insert_event(spvalues):
       if 'sql_custom' in locals():
          print('inserting custom event')
          cur.execute(sql_custom, values_custom)
+      for custom_cx_sql in custom_cx_sqls:
+         print('inserting custom context')
+         cur.execute(custom_cx_sql[0], custom_cx_sql[1])
       # commit the changes to the database
       conn.commit()
       # close communication with the database
@@ -241,8 +278,8 @@ def lambda_handler(event, context):
         geo_timezone = geoipdbresult.location.time_zone
         urisplt = re.compile(r'([^&]*)&*')
         urispltnodes = urisplt.findall(l[11])[:-1]
-        print('urispltnodes:')
-        print(urispltnodes)
+      #   print('urispltnodes:')
+      #   print(urispltnodes)
         spvalues = {'app_id': '-','platform': '-','collector_tstamp': collector_tstamp,'dvce_created_tstamp': '-','event': '-','event_id': '-','txn_id': '-','name_tracker': '-','v_tracker': '-','user_id': '-','user_ipaddress': user_ipaddress,'user_fingerprint': '-','domain_userid': '-','domain_sessionidx': '-','network_userid': '-','geo_country': geo_country,'geo_city': geo_city,'geo_zipcode': geo_zipcode,'geo_latitude': geo_latitude,'geo_longitude': geo_longitude,'geo_region_name': geo_region_name,'page_url': '-','page_title': '-','page_referrer': '-','refr_urlscheme': refr_urlscheme,'refr_urlhost': refr_urlhost,'refr_urlpath': refr_urlpath,'refr_urlquery': refr_urlquery,'se_category': '-','se_action': '-','se_label': '-','se_property': '-','se_value': '-','unstruct_event': '-','tr_orderid': '-','tr_affiliation': '-','tr_total': '-','tr_tax': '-','tr_shipping': '-','tr_city': '-','tr_state': '-','tr_country': '-','ti_orderid': '-','ti_sku': '-','ti_name': '-','ti_category': '-','ti_price': '-','ti_quantity': '-','pp_xoffset_min': '-','pp_xoffset_max': '-','pp_yoffset_min': '-','pp_yoffset_max': '-','useragent': useragent,'br_name': br_name,'br_family': br_family,'br_version': br_version,'br_lang': '-','br_features_pdf': '-','br_features_flash': '-','br_features_java': '-','br_features_director': '-','br_features_quicktime': '-','br_features_realplayer': '-','br_features_windowsmedia': '-','br_features_gears': '-','br_features_silverlight': '-','br_cookies': '-','br_colordepth': '-','br_viewwidth': '-','br_viewheight': '-','os_family': os_family,'os_timezone': '-','dvce_type': dvce_type,'dvce_ismobile': dvce_ismobile,'dvce_screenwidth': '-','dvce_screenheight': '-','doc_charset': '-','doc_width': '-','doc_height': '-','tr_currency': '-','ti_currency': '-','geo_timezone': geo_timezone,'dvce_sent_tstamp': '-','domain_sessionid': '-','event_vendor': '-'}
         if len(urispltnodes[0]) > 3:
             for spparams in urispltnodes:
@@ -386,6 +423,8 @@ def lambda_handler(event, context):
                    spvalues['event_vendor'] = sp[1]
                 if sp[0] == 'ue_pr':
                    spvalues['unstruct_event_unencoded'] = sp[1]
+                if sp[0] == 'cx':
+                  spvalues['context'] = sp[1]
             for key,val in spvalues.items():
                 # if val == ():
                 #     val = '-'
