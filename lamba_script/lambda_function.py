@@ -122,6 +122,10 @@ def insert_event(spvalues):
          custom_schema_str = 'io_azarus_stream_watch_1'
       if re.search(r'new_creator_account',unstruct_event['data']['schema']):
          custom_schema_str = 'io_azarus_new_creator_account_1'
+      if re.search(r'stream_session_started',unstruct_event['data']['schema']):
+         custom_schema_str = 'io_azarus_stream_session_started_1'
+      if re.search(r'stream_session_ended',unstruct_event['data']['schema']):
+         custom_schema_str = 'io_azarus_stream_session_ended_1'
 
       if 'custom_schema_str' in locals():
          unstruct_event_data = flatten(unstruct_event['data']['data'])
