@@ -31,7 +31,7 @@ CREATE TABLE "atomic"."events" (
 	"v_etl" varchar(100), -- NOT NULL,
 	-- User and visit
 	"user_id" varchar(255),
-	"user_ipaddress" varchar(45),
+	"user_ipaddress" varchar(100),
 	"user_fingerprint" varchar(50),
 	"domain_userid" varchar(36),
 	"domain_sessionidx" smallint,
