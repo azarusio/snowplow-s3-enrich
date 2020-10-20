@@ -474,6 +474,12 @@ def lambda_handler(event, context):
                     custom_schema_str = 'io_azarus_stream_session_ended_1'
                 if re.search(r'challenge_sent_to_live_channel',unstruct_event['data']['schema']):
                     custom_schema_str = 'io_azarus_challenge_sent_to_live_channel_1'
+                if re.search(r'cvp_challenge_started',unstruct_event['data']['schema']):
+                    custom_schema_str = 'io_azarus_cvp_challenge_started_1'
+                if re.search(r'cvp_challenge_joined_by_player',unstruct_event['data']['schema']):
+                    custom_schema_str = 'io_azarus_cvp_challenge_joined_by_player_1'
+                if re.search(r'cvp_challenge_resolved',unstruct_event['data']['schema']):
+                    custom_schema_str = 'io_azarus_cvp_challenge_resolved_1'
 
                 if len(custom_schema_str) > 0:
                     unstruct_event_data = flatten(unstruct_event['data']['data'])
